@@ -10,14 +10,21 @@ import subprocess
 import f90nml
 
 NPROCS_MAX = 480
-DOC_LAYOUT = 'MOM_parameter_doc.layout'
+#NPROCS_MAX = 32
+OVERRIDE = False
+
 verbose = False
-TEST_MODE = 'debug'
+override_fname = 'MOM_override_global'
+DOC_LAYOUT = 'MOM_parameter_doc.layout'
+TEST_MODE = 'repro' # NOTE: debug and repro may have different answers!
 
 def regressions():
     base_path = os.getcwd()
     regressions_path = os.path.join(base_path, 'regressions')
     regression_tests = get_regression_tests(regressions_path)
+
+    override_path = os.path.join(base_path, override_fname)
+    use_override = OVERRIDE and os.path.isfile(override_fname)
 
     # Check output
     if (verbose):
@@ -74,6 +81,22 @@ def regressions():
 
                     input_nml_path = os.path.join(test.runpath, 'input.nml')
                     input_nml = f90nml.read(input_nml_path)
+
+                    # Set up a global override for testing across experiments
+                    if use_override:
+                        local_override_path = os.path.join(test.runpath, OVERRIDE)
+                        if not os.path.islink(local_override_path):
+                            os.symlink(override_path, local_override_path)
+
+                    # Add the global override to the list of parameters
+                    param_fnames = input_nml['MOM_input_nml']['parameter_filename']
+                    if OVERRIDE and not override_fname in param_fnames:
+                        print('{}: Updating input.nml...'.format(test.name))
+                        param_fnames.append(OVERRIDE)
+                        input_nml.write(input_nml_path, force=True)
+
+                    # Assume that unset atmos PEs are zero, but verify the
+                    # ocean PEs from MOM_input or layout
                     coupler_nml = input_nml.get('coupler_nml', {})
                     atmos_npes = coupler_nml.get('atmos_npes', 0)
                     ocean_npes = coupler_nml.get('ocean_npes')
