@@ -9,14 +9,17 @@ import subprocess
 
 import f90nml
 
+#NPROCS_MAX = 576
 NPROCS_MAX = 480
 #NPROCS_MAX = 32
+#NPROCS_MAX = 1
 OVERRIDE = False
 
 verbose = False
 override_fname = 'MOM_override_global'
 DOC_LAYOUT = 'MOM_parameter_doc.layout'
 TEST_MODE = 'repro' # NOTE: debug and repro may have different answers!
+#TEST_MODE = 'debug'
 
 def regressions():
     base_path = os.getcwd()
@@ -157,6 +160,7 @@ def regressions():
 
                         if (verbose):
                             print('    Starting {}...'.format(test.name))
+                            print(cmd)
 
                         proc = subprocess.Popen(
                             shlex.split(cmd),

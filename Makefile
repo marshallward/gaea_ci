@@ -10,6 +10,9 @@ CONFIGURATIONS ?= \
 	coupled_AM2_LM3_SIS \
 	coupled_AM2_LM3_SIS2
 
+# Testing
+NCVERSION=3
+
 # TODO: Merge into configurations?
 MOM6_CONFIGS = \
 	ocean_only
@@ -37,19 +40,14 @@ shared_src = \
 	src/FMS
 ocean_only_src = \
 	src/MOM6/config_src/solo_driver \
+	$(sort $(dir src/MOM6/config_src/external/*)) \
+	$(sort $(dir src/MOM6/config_src/external/*/*)) \
 	$(sort $(dir src/MOM6/src/*)) \
 	$(sort $(dir src/MOM6/src/*/*))
-#ice_ocean_SIS2_src = \
-#	src/MOM6/config_src/coupled_driver \
-#	$(sort $(dir src/MOM6/src/*)) \
-#	$(sort $(dir src/MOM6/src/*/*)) \
-#	src/coupler \
-#	src/atmos_null \
-#	src/land_null \
-#	src/icebergs src/ice_param src/SIS2 \
-#	src/FMS/coupler src/FMS/include
 ice_ocean_SIS2_src = \
 	src/MOM6/config_src/coupled_driver \
+	$(sort $(dir src/MOM6/config_src/external/*)) \
+	$(sort $(dir src/MOM6/config_src/external/*/*)) \
 	$(sort $(dir src/MOM6/src/*)) \
 	$(sort $(dir src/MOM6/src/*/*)) \
 	src/coupler \
@@ -59,6 +57,8 @@ ice_ocean_SIS2_src = \
 	src/FMS/coupler src/FMS/include
 land_ice_ocean_LM3_SIS2_src = \
 	src/MOM6/config_src/coupled_driver \
+	$(sort $(dir src/MOM6/config_src/external/*)) \
+	$(sort $(dir src/MOM6/config_src/external/*/*)) \
 	$(sort $(dir src/MOM6/src/*)) \
 	$(sort $(dir src/MOM6/src/*/*)) \
 	src/coupler \
@@ -70,6 +70,8 @@ coupled_AM2_LM3_SIS_src = \
 	src/MOM6/config_src/coupled_driver \
 	$(sort $(dir src/MOM6/src/*)) \
 	$(sort $(dir src/MOM6/src/*/*)) \
+	$(sort $(dir src/MOM6/config_src/external/*)) \
+	$(sort $(dir src/MOM6/config_src/external/*/*)) \
 	src/coupler \
 	$(addprefix src/AM2/,atmos_drivers/coupled atmos_shared_am3) \
 	$(addprefix src/AM2/,$(addprefix atmos_fv_dynamics/, driver/coupled model tools)) \
@@ -79,6 +81,8 @@ coupled_AM2_LM3_SIS_src = \
 	src/FMS/coupler src/FMS/include
 coupled_AM2_LM3_SIS2_src = \
 	src/MOM6/config_src/coupled_driver \
+	$(sort $(dir src/MOM6/config_src/external/*)) \
+	$(sort $(dir src/MOM6/config_src/external/*/*)) \
 	$(sort $(dir src/MOM6/src/*)) \
 	$(sort $(dir src/MOM6/src/*/*)) \
 	src/coupler \
@@ -114,7 +118,8 @@ sis2_dynamic_symmetric_src = \
 	src/SIS2/config_src/dynamic_symmetric
 
 # mkmf preprocessor flags
-shared_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD"
+shared_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_mpp_io"
+#shared_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD"
 ocean_only_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD"
 ice_ocean_SIS2_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_AM3_physics -D_USE_LEGACY_LAND_"
 land_ice_ocean_LM3_SIS2_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_AM3_physics -D_USE_LEGACY_LAND_"
@@ -138,7 +143,7 @@ mom6_builds = $(foreach c, $(COMPILERS), $(foreach m, $(MODES), $(foreach g, $(G
 sis2_builds = $(foreach c, $(COMPILERS), $(foreach m, $(MODES), $(foreach g, $(GRIDS), $(foreach p, $(SIS2_CONFIGS), build/$(c)/$(m)/$(g)/$(p)/$(1)))))
 
 all_repro = $(foreach c, $(COMPILERS), $(foreach g, $(GRIDS), $(foreach p, $(CONFIGURATIONS), build/$(c)/repro/$(g)/$(p)/$(1))))
-all_debug = $(foreach g, $(GRIDS), $(foreach p, $(CONFIGURATIONS), build/gnu/debug/$(g)/$(p)/$(1)))
+all_debug = $(foreach c, $(COMPILERS), $(foreach g, $(GRIDS), $(foreach p, $(CONFIGURATIONS), build/$(c)/debug/$(g)/$(p)/$(1))))
 
 
 # Target pathname parsing
@@ -267,7 +272,7 @@ $(call all_builds,shared,libfms.a) $(call all_configs,MOM6):
 	source $(ENVIRONS)/$(compiler).env && make \
 		-j \
 		-C $(dir $@) \
-		NETCDF=3 \
+		NETCDF=$(NCVERSION) \
 		$($(mode)_flags) \
 		$(notdir $@)
 
