@@ -3,6 +3,7 @@ SITE ?= ncrc
 COMPILERS ?= gnu intel pgi
 MODES ?= repro debug
 GRIDS ?= dynamic_symmetric dynamic
+INFRA ?= FMS2
 CONFIGURATIONS ?= \
 	ocean_only \
 	ice_ocean_SIS2 \
@@ -25,6 +26,8 @@ SIS2_CONFIGS = \
 	land_ice_ocean_LM3_SIS2 \
 	coupled_AM2_LM3_SIS2
 
+DATASETS = /lustre/f2/pdata/gfdl/gfdl_O/datasets
+
 # Sometimes BASE will be the regression test suite dir
 BASE := $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 REPO := $(BASE)
@@ -39,13 +42,15 @@ MKMF := $(REPO)/src/mkmf/bin/mkmf
 shared_src = \
 	src/FMS
 ocean_only_src = \
-	src/MOM6/config_src/solo_driver \
+	src/MOM6/config_src/infra/${INFRA} \
+	src/MOM6/config_src/drivers/solo_driver \
 	$(sort $(dir src/MOM6/config_src/external/*)) \
 	$(sort $(dir src/MOM6/config_src/external/*/*)) \
 	$(sort $(dir src/MOM6/src/*)) \
 	$(sort $(dir src/MOM6/src/*/*))
 ice_ocean_SIS2_src = \
-	src/MOM6/config_src/coupled_driver \
+	src/MOM6/config_src/infra/${INFRA} \
+	src/MOM6/config_src/drivers/FMS_cap \
 	$(sort $(dir src/MOM6/config_src/external/*)) \
 	$(sort $(dir src/MOM6/config_src/external/*/*)) \
 	$(sort $(dir src/MOM6/src/*)) \
@@ -56,7 +61,8 @@ ice_ocean_SIS2_src = \
 	src/icebergs src/ice_param src/SIS2/src \
 	src/FMS/coupler src/FMS/include
 land_ice_ocean_LM3_SIS2_src = \
-	src/MOM6/config_src/coupled_driver \
+	src/MOM6/config_src/infra/${INFRA} \
+	src/MOM6/config_src/drivers/FMS_cap \
 	$(sort $(dir src/MOM6/config_src/external/*)) \
 	$(sort $(dir src/MOM6/config_src/external/*/*)) \
 	$(sort $(dir src/MOM6/src/*)) \
@@ -67,7 +73,8 @@ land_ice_ocean_LM3_SIS2_src = \
 	src/icebergs src/ice_param src/SIS2/src \
 	src/FMS/coupler src/FMS/include
 coupled_AM2_LM3_SIS_src = \
-	src/MOM6/config_src/coupled_driver \
+	src/MOM6/config_src/infra/${INFRA} \
+	src/MOM6/config_src/drivers/FMS_cap \
 	$(sort $(dir src/MOM6/src/*)) \
 	$(sort $(dir src/MOM6/src/*/*)) \
 	$(sort $(dir src/MOM6/config_src/external/*)) \
@@ -80,7 +87,8 @@ coupled_AM2_LM3_SIS_src = \
 	src/ice_param src/SIS \
 	src/FMS/coupler src/FMS/include
 coupled_AM2_LM3_SIS2_src = \
-	src/MOM6/config_src/coupled_driver \
+	src/MOM6/config_src/infra/${INFRA} \
+	src/MOM6/config_src/drivers/FMS_cap \
 	$(sort $(dir src/MOM6/config_src/external/*)) \
 	$(sort $(dir src/MOM6/config_src/external/*/*)) \
 	$(sort $(dir src/MOM6/src/*)) \
@@ -107,9 +115,9 @@ coupled_AM2_LM3_SIS2_files = $(sort $(foreach d, $(coupled_AM2_LM3_SIS2_src), $(
 
 # MOM6 grid-specific source
 mom6_dynamic_src = \
-	src/MOM6/config_src/dynamic
+	src/MOM6/config_src/memory/dynamic_nonsymmetric
 mom6_dynamic_symmetric_src = \
-	src/MOM6/config_src/dynamic_symmetric
+	src/MOM6/config_src/memory/dynamic_symmetric
 
 # SIS2 grid-specific source
 sis2_dynamic_src = \
@@ -118,8 +126,8 @@ sis2_dynamic_symmetric_src = \
 	src/SIS2/config_src/dynamic_symmetric
 
 # mkmf preprocessor flags
-shared_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_mpp_io"
-#shared_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD"
+#shared_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_mpp_io"
+shared_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD"
 ocean_only_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD"
 ice_ocean_SIS2_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_AM3_physics -D_USE_LEGACY_LAND_"
 land_ice_ocean_LM3_SIS2_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_AM3_physics -D_USE_LEGACY_LAND_"
@@ -163,8 +171,19 @@ debug_flags = DEBUG=1
 
 # Development builds; swap with `all` for deployment
 dev: $(foreach c, $(CONFIGURATIONS), build/gnu/repro/dynamic_symmetric/$(c)/MOM6)
-debug: $(foreach c, $(CONFIGURATIONS), build/gnu/debug/dynamic_symmetric/$(c)/MOM6)
-all: $(call all_repro,MOM6) $(call all_debug,MOM6)
+
+all: debug repro
+debug: gnu.debug intel.debug pgi.debug
+repro: gnu.repro intel.repro pgi.repro
+
+gnu.debug: $(foreach c, $(CONFIGURATIONS), build/gnu/debug/dynamic_symmetric/$(c)/MOM6)
+gnu.repro: $(foreach c, $(CONFIGURATIONS), build/gnu/repro/$(c)/MOM6)
+intel.debug: $(foreach c, $(CONFIGURATIONS), build/intel/debug/dynamic_symmetric/$(c)/MOM6)
+intel.repro: $(foreach c, $(CONFIGURATIONS), build/intel/repro/dynamic_symmetric/$(c)/MOM6)
+pgi.repro: $(foreach c, $(CONFIGURATIONS), build/pgi/repro/dynamic_symmetric/$(c)/MOM6)
+pgi.debug: $(foreach c, $(CONFIGURATIONS), build/pgi/debug/dynamic_symmetric/$(c)/MOM6)
+
+#all: $(call all_repro,MOM6) $(call all_debug,MOM6)
 
 # Internal GFDL source code checkout
 # TODO: Set up proper dependencies within the recipes
@@ -275,6 +294,11 @@ $(call all_builds,shared,libfms.a) $(call all_configs,MOM6):
 		NETCDF=$(NCVERSION) \
 		$($(mode)_flags) \
 		$(notdir $@)
+
+
+# Set up external datasets
+.datasets:
+	ln -s $DATASETS .datasets
 
 
 clean:
