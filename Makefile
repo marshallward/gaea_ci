@@ -2,14 +2,19 @@
 SITE ?= ncrc
 COMPILERS ?= gnu intel pgi
 MODES ?= repro debug
+MODES ?= repro
 GRIDS ?= dynamic_symmetric dynamic
-INFRA ?= FMS2
+INFRA ?= FMS1
+#INFRA ?= FMS2
 CONFIGURATIONS ?= \
 	ocean_only \
 	ice_ocean_SIS2 \
 	land_ice_ocean_LM3_SIS2 \
 	coupled_AM2_LM3_SIS \
 	coupled_AM2_LM3_SIS2
+#CONFIGURATIONS ?= \
+#	ocean_only \
+#	ice_ocean_SIS2
 
 # Testing
 NCVERSION=3
@@ -36,6 +41,10 @@ TEMPLATES := $(REPO)/src/mkmf/templates
 LIST_PATHS := $(REPO)/src/mkmf/bin/list_paths
 MKMF := $(REPO)/src/mkmf/bin/mkmf
 
+SIS2_SRC = \
+	src/SIS2/src \
+	$(sort $(dir src/SIS2/config_src/external/*)) \
+	$(sort $(dir src/SIS2/config_src/external/*/*))
 
 # Source trees
 # TODO: Bundle submodel directories together into variables
@@ -58,7 +67,8 @@ ice_ocean_SIS2_src = \
 	src/coupler \
 	src/atmos_null \
 	src/land_null \
-	src/icebergs src/ice_param src/SIS2/src \
+	src/icebergs src/ice_param \
+	$(SIS2_SRC) \
 	src/FMS/coupler src/FMS/include
 land_ice_ocean_LM3_SIS2_src = \
 	src/MOM6/config_src/infra/${INFRA} \
@@ -70,7 +80,8 @@ land_ice_ocean_LM3_SIS2_src = \
 	src/coupler \
 	src/atmos_null \
 	src/LM3 \
-	src/icebergs src/ice_param src/SIS2/src \
+	src/icebergs src/ice_param \
+	$(SIS2_SRC) \
 	src/FMS/coupler src/FMS/include
 coupled_AM2_LM3_SIS_src = \
 	src/MOM6/config_src/infra/${INFRA} \
@@ -98,7 +109,8 @@ coupled_AM2_LM3_SIS2_src = \
 	$(addprefix src/AM2/,$(addprefix atmos_fv_dynamics/, driver/coupled model tools)) \
 	src/atmos_param_am3 \
 	src/LM3 \
-	src/icebergs src/ice_param src/SIS2/src \
+	src/icebergs src/ice_param \
+	$(SIS2_SRC) \
 	src/FMS/coupler src/FMS/include
 
 # Track individual files
@@ -176,12 +188,12 @@ all: debug repro
 debug: gnu.debug intel.debug pgi.debug
 repro: gnu.repro intel.repro pgi.repro
 
-gnu.debug: $(foreach c, $(CONFIGURATIONS), build/gnu/debug/dynamic_symmetric/$(c)/MOM6)
-gnu.repro: $(foreach c, $(CONFIGURATIONS), build/gnu/repro/$(c)/MOM6)
-intel.debug: $(foreach c, $(CONFIGURATIONS), build/intel/debug/dynamic_symmetric/$(c)/MOM6)
-intel.repro: $(foreach c, $(CONFIGURATIONS), build/intel/repro/dynamic_symmetric/$(c)/MOM6)
-pgi.repro: $(foreach c, $(CONFIGURATIONS), build/pgi/repro/dynamic_symmetric/$(c)/MOM6)
-pgi.debug: $(foreach c, $(CONFIGURATIONS), build/pgi/debug/dynamic_symmetric/$(c)/MOM6)
+gnu.debug: | $(foreach c, $(CONFIGURATIONS), build/gnu/debug/dynamic_symmetric/$(c)/MOM6)
+gnu.repro: | $(foreach c, $(CONFIGURATIONS), build/gnu/repro/dynamic_symmetric/$(c)/MOM6)
+intel.debug: | $(foreach c, $(CONFIGURATIONS), build/intel/debug/dynamic_symmetric/$(c)/MOM6)
+intel.repro: | $(foreach c, $(CONFIGURATIONS), build/intel/repro/dynamic_symmetric/$(c)/MOM6)
+pgi.repro: | $(foreach c, $(CONFIGURATIONS), build/pgi/repro/dynamic_symmetric/$(c)/MOM6)
+pgi.debug: | $(foreach c, $(CONFIGURATIONS), build/pgi/debug/dynamic_symmetric/$(c)/MOM6)
 
 #all: $(call all_repro,MOM6) $(call all_debug,MOM6)
 
