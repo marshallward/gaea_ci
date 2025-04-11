@@ -11,15 +11,20 @@ import f90nml
 
 #NPROCS_MAX = 576
 NPROCS_MAX = 480
+#NPROCS_MAX = 64
 #NPROCS_MAX = 32
 #NPROCS_MAX = 1
 OVERRIDE = False
 
+#verbose = True
 verbose = False
 override_fname = 'MOM_override_global'
 DOC_LAYOUT = 'MOM_parameter_doc.layout'
 TEST_MODE = 'repro' # NOTE: debug and repro may have different answers!
 #TEST_MODE = 'debug'
+
+TARGET = 'gnu'
+#TARGET = 'intel'
 
 def regressions():
     base_path = os.getcwd()
@@ -31,7 +36,7 @@ def regressions():
 
     # Check output
     if (verbose):
-        for compiler in ('gnu',):
+        for compiler in (TARGET, ):
             print('{}: ['.format(compiler))
             for config in regression_tests[compiler]:
                 print('    {}:'.format(config))
@@ -40,10 +45,10 @@ def regressions():
                     print('        {}'.format(test))
             print(']')
 
-    n_tests = sum(len(t) for t in regression_tests['gnu'].values())
+    n_tests = sum(len(t) for t in regression_tests[TARGET].values())
     print('Number of tests: {}'.format(n_tests))
 
-    for compiler in ('gnu',):
+    for compiler in (TARGET, ):
         # TODO: static, [no]symmetric, etc
         for mode in (TEST_MODE,):
             running_tests = []
@@ -143,12 +148,15 @@ def regressions():
 
                         # FMS requires an existing RESTART directory
                         os.chdir(test_path)
-                        mkdir_p('RESTART')
+                        #mkdir_p('RESTART')
 
                         # Stage the Slurm command
                         srun_flags = ' '.join([
                             '-mblock',
                             '--exclusive',
+                            #'--cpus-per-task={}'.format(nprocs),
+                            #'--exact',
+                            #'--cpu-bind=v',
                             '-n {}'.format(nprocs),
                         ])
 
@@ -176,6 +184,7 @@ def regressions():
             # Wait for processes to complete
             # TODO: Cycle through and check them all, not just the first slow one
             for test in running_tests:
+                #test.process.wait(timeout=300)
                 test.process.wait()
 
             # Check if any runs exited with an error

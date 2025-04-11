@@ -10,6 +10,7 @@ import subprocess
 import f90nml
 
 NPROCS_MAX = 480
+#NPROCS_MAX = 64
 #NPROCS_MAX = 32
 OVERRIDE = False
 
@@ -17,6 +18,7 @@ verbose = False
 override_fname = 'MOM_override_global'
 DOC_LAYOUT = 'MOM_parameter_doc.layout'
 TEST_MODE = 'repro' # NOTE: debug and repro may have different answers!
+#TEST_MODE = 'debug' # NOTE: debug and repro may have different answers!
 
 def regressions():
     base_path = os.getcwd()
