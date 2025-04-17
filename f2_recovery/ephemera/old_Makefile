@@ -1,0 +1,171 @@
+# Attempt at a general Makefile for multiple drivers and compilers
+# Rules are all phony at the moment, currently not filename-based
+
+# Executables
+CONFIGURATIONS ?= \
+	ocean_only \
+	ice_ocean_SIS2 \
+	land_ice_ocean_LM3_SIS2 \
+	coupled_AM2_LM3_SIS2 \
+	coupled_AM2_LM3_SIS
+#MODES ?= repro debug
+# TODO: Only do debug for gnu (but support debug build for others)
+MODES ?= repro
+
+# Expected template format is $(SITE)-$(COMPILER).mk
+COMPILERS ?= gnu intel pgi
+SITE ?= ncrc
+
+# Root paths
+#BASE := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+BASE := $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
+REPO := $(BASE)/MOM6-examples
+LIST_PATHS := $(REPO)/src/mkmf/bin/list_paths
+MKMF := $(REPO)/src/mkmf/bin/mkmf
+TEMPLATES := $(REPO)/src/mkmf/templates
+ENVIRONS := $(BASE)/environs
+ATMOS_PARAM := atmos_param_am3
+
+
+# Functions
+build_dir = $(BASE)/build/$@
+# These assume rules of the form $(compiler)/$(config)/$(mode)
+# NOTE: These can be juggled around if we don't like the directory tree
+compiler = $(firstword $(subst /, ,$@))
+config = $(word 2, $(subst /, ,$@))
+mode = $(lastword $(subst /, ,$@))
+# XXX: Someday this will be a function, just a constant for now
+symmetric := dynamic_symmetric
+
+
+# Configuration directories
+shared_src = $(REPO)/src/FMS
+ocean_only_src = $(REPO)/src/MOM6/{config_src/$(symmetric),config_src/solo_driver,src/{*,*/*}}
+ice_ocean_SIS2_src = \
+	$(REPO)/src/MOM6/config_src/{$(symmetric),coupled_driver} \
+	$(REPO)/src/MOM6/src/{*,*/*}/ \
+	$(REPO)/src/{atmos_null,coupler,land_null,icebergs,ice_param,SIS2,FMS/coupler,FMS/include}
+land_ice_ocean_LM3_SIS2_src = \
+	$(REPO)/src/MOM6/config_src/{$(symmetric),coupled_driver} \
+	$(REPO)/src/MOM6/src/{*,*/*}/ \
+	$(REPO)/src/{atmos_null,coupler,LM3,icebergs,ice_param,SIS2,FMS/coupler,FMS/include}
+coupled_AM2_LM3_SIS_src = \
+	$(REPO)/src/MOM6/config_src/{$(symmetric),coupled_driver} \
+	$(REPO)/src/MOM6/src/{*,*/*}/ \
+	$(REPO)/src/{AM2/{atmos_drivers/coupled,atmos_fv_dynamics/{driver/coupled,model,tools},atmos_shared_am3},atmos_param_am3} \
+	$(REPO)/src/{coupler,LM3,ice_param,SIS,FMS/coupler,FMS/include}
+coupled_AM2_LM3_SIS2_src = \
+	$(REPO)/src/MOM6/config_src/{$(symmetric),coupled_driver} \
+	$(REPO)/src/MOM6/src/{*,*/*}/ \
+	$(REPO)/src/{AM2/{atmos_drivers/coupled,atmos_fv_dynamics/{driver/coupled,model,tools},atmos_shared_am3},atmos_param_am3} \
+	$(REPO)/src/{coupler,LM3,icebergs,ice_param,SIS2,FMS/coupler,FMS/include}
+
+# Configuration preprocessor flags
+shared_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD"
+ocean_only_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD"
+ice_ocean_SIS2_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_AM3_physics -D_USE_LEGACY_LAND_"
+land_ice_ocean_LM3_SIS2_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_AM3_physics -D_USE_LEGACY_LAND_"
+coupled_AM2_LM3_SIS_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_AM3_physics -D_USE_LEGACY_LAND_"
+coupled_AM2_LM3_SIS2_cpp = "-Duse_libMPI -Duse_netCDF -DSPMD -Duse_AM3_physics -D_USE_LEGACY_LAND_"
+
+# Mode configuration flags
+repro_flags = REPRO=1
+debug_flags = DEBUG=1
+
+
+# Rules
+all: $(CONFIGURATIONS)
+
+ocean_only: $(foreach c, $(COMPILERS), $c/ocean_only)
+ice_ocean_SIS2: $(foreach c, $(COMPILERS), $c/ice_ocean_SIS2)
+land_ice_ocean_LM3_SIS2: $(foreach c, $(COMPILERS), $c/land_ice_ocean_LM3_SIS2)
+coupled_AM2_LM3_SIS: $(foreach c, $(COMPILERS), $c/coupled_AM2_LM3_SIS)
+coupled_AM2_LM3_SIS2: $(foreach c, $(COMPILERS), $c/coupled_AM2_LM3_SIS2)
+shared: $(foreach c, ${COMPILERS}, $c/shared)
+
+
+# NOTE: Using *-build is a hack way to bundle multiple rules with dependencies.
+# Probably a better way to do it...
+# TODO: Set .PHONY on *-build rules
+
+%/ocean_only: $(foreach m, $(MODES), %/ocean_only/$(m)-build)
+	@echo "Finished $@"
+
+# NOTE: You need to use empty recipes (;) here!
+%/ocean_only/repro-build: %/shared/repro %/ocean_only/repro ;
+%/ocean_only/debug-build: %/shared/debug %/ocean_only/debug ;
+
+
+%/ice_ocean_SIS2: $(foreach m, $(MODES), %/ice_ocean_SIS2/$(m)-build)
+	@echo "Finished $@"
+
+%/ice_ocean_SIS2/repro-build: %/shared/repro %/ice_ocean_SIS2/repro ;
+%/ice_ocean_SIS2/debug-build: %/shared/debug %/ice_ocean_SIS2/debug ;
+
+
+%/land_ice_ocean_LM3_SIS2: $(foreach m, $(MODES), %/land_ice_ocean_LM3_SIS2/$(m)-build)
+	@echo "Finished $@"
+
+%/land_ice_ocean_LM3_SIS2/repro-build: %/shared/repro %/land_ice_ocean_LM3_SIS2/repro ;
+%/land_ice_ocean_LM3_SIS2/debug-build: %/shared/debug %/land_ice_ocean_LM3_SIS2/debug ;
+
+
+%/coupled_AM2_LM3_SIS: $(foreach m, $(MODES), %/coupled_AM2_LM3_SIS/$(m)-build)
+	@echo "Finished $@"
+
+%/coupled_AM2_LM3_SIS/repro-build: %/shared/repro %/coupled_AM2_LM3_SIS/repro ;
+%/coupled_AM2_LM3_SIS/debug-build: %/shared/debug %/coupled_AM2_LM3_SIS/debug ;
+
+
+%/coupled_AM2_LM3_SIS2: $(foreach m, $(MODES), %/coupled_AM2_LM3_SIS2/$(m)-build)
+	@echo "Finished $@"
+
+%/coupled_AM2_LM3_SIS2/repro-build: %/shared/repro %/coupled_AM2_LM3_SIS2/repro ;
+%/coupled_AM2_LM3_SIS2/debug-build: %/shared/debug %/coupled_AM2_LM3_SIS2/debug ;
+
+
+%/shared: $(foreach m, $(MODES), %/shared/$(m))
+	@echo "Finished $@"
+
+
+# Executable build rule
+$(foreach c,$(COMPILERS), $(foreach cfg, $(CONFIGURATIONS), $(foreach m, $(MODES), $(c)/$(cfg)/$(m)))):
+	@echo "Starting $@"
+	mkdir -p $(build_dir)
+	rm -f $(build_dir)/path_names
+	cd $(build_dir) && $(LIST_PATHS) -l $($(config)_src)
+	cd $(build_dir) && $(MKMF) \
+		-t $(TEMPLATES)/$(SITE)-$(compiler).mk \
+		-o '-I $(BASE)/build/$(compiler)/shared/$(mode)' \
+		-p MOM6 \
+		-l '-L $(BASE)/build/$(compiler)/shared/$(mode) -lfms' \
+		-c $($(config)_cpp) \
+		$(build_dir)/path_names
+	source $(ENVIRONS)/$(compiler).env && make \
+		-j \
+		-C $(build_dir) \
+		NETCDF=3 \
+		$($(mode)_flags) \
+		MOM6
+	@echo "Finished $@"
+
+
+# FMS build rule
+# (TODO: Integrate with executable?  Is it worth it?)
+$(foreach c, $(COMPILERS), $(foreach m, $(MODES), $(c)/shared/$(m))):
+	@echo "Starting $@"
+	mkdir -p $(build_dir)
+	rm -f $(build_dir)/path_names
+	cd $(build_dir) && $(LIST_PATHS) -l $($(config)_src)
+	cd $(build_dir) && $(MKMF) \
+		-t $(TEMPLATES)/$(SITE)-$(compiler).mk \
+		-p libfms.a \
+		-c $($(config)_cpp) \
+		$(build_dir)/path_names
+	source $(ENVIRONS)/$(compiler).env && make \
+		-j \
+		-C $(build_dir) \
+		NETCDF=3 \
+		$($(mode)_flags) \
+		libfms.a
+	@echo "Finished $@"
